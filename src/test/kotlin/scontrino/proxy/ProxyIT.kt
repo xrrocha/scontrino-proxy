@@ -3,10 +3,10 @@ package scontrino.proxy
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
-class TestProxy {
+class ProxyIT {
 
     @Test
-    fun doit() {
+    fun `proxy relies traffic`() {
         val host = "localhost"
         val proxiedPort = 9876
         val exposedPort = 6789
