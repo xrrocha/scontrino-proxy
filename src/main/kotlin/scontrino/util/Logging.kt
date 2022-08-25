@@ -1,4 +1,4 @@
-package scontrino.proxy
+package scontrino.util
 
 import org.slf4j.LoggerFactory
 

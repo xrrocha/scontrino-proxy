@@ -1,4 +1,4 @@
-package scontrino.proxy
+package scontrino.util
 
 import java.io.IOException
 import java.net.ServerSocket

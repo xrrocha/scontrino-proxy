@@ -1,5 +1,7 @@
 package scontrino.proxy
 
+import scontrino.util.Logging
+import scontrino.util.ServerRunner
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PrintWriter

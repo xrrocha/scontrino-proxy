@@ -1,5 +1,7 @@
 package scontrino.proxy
 
+import scontrino.util.Logging
+import scontrino.util.ServerRunner
 import java.net.Socket
 
 class Proxy(host: String, proxiedPort: Int, exposedPort: Int) : ServerRunner(exposedPort) {
