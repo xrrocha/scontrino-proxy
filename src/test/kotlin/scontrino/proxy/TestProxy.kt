@@ -3,7 +3,7 @@ package scontrino.proxy
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
-class TestTcpIpProxy {
+class TestProxy {
 
     @Test
     fun doit() {
@@ -15,7 +15,7 @@ class TestTcpIpProxy {
         val server = LineServer(proxiedPort, poisonPill, String::uppercase)
             .also { it.start() }
 
-        val proxy = TcpIpProxy(host, proxiedPort, exposedPort)
+        val proxy = Proxy(host, proxiedPort, exposedPort)
             .also { it.start() }
 
         val client = LineClient(host, exposedPort, poisonPill)
