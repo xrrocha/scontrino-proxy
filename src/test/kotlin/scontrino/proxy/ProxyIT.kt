@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 class ProxyIT {
 
     @Test
-    fun `proxy relies traffic`() {
+    fun `proxy relays traffic`() {
         val host = "localhost"
         val proxiedPort = 9876
         val exposedPort = 6789
