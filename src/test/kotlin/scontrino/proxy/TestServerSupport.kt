@@ -21,10 +21,10 @@ class LineServer(
     private val poisonPill: String,
     private val transform: (String) -> String
 ) : ServerRunner(port) {
-    override fun handle(socket: Socket) {
+    override fun handle(clientSocket: Socket) {
         logger.debug("Got connection")
         Thread {
-            val lineIO = socket.asLineRW()
+            val lineIO = clientSocket.asLineRW()
             generateSequence { lineIO.readLine() }
                 .takeWhile { it != poisonPill }
                 .forEach { message ->
@@ -32,7 +32,7 @@ class LineServer(
                     lineIO.println(transform(message))
                 }
             logger.debug("Closing client connection")
-            socket.close()
+            clientSocket.close()
         }
             .also {
                 logger.info("Starting server")

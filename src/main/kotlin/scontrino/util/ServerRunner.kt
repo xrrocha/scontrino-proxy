@@ -28,8 +28,7 @@ abstract class ServerRunner(port: Int) : Logging {
         }
     }
 
-
-    abstract fun handle(socket: Socket)
+    abstract fun handle(clientSocket: Socket)
 
     fun start() {
         logger.info("Starting server ${this::class.simpleName}")
