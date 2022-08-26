@@ -20,35 +20,12 @@ import java.util.UUID
 const val BufferSize: Int = 32 * 1024
 const val SessionDuration = 30 * 60 * 1000L
 
-class Session(
-    val ipAddress: InetAddress,
-    val initialTimestamp: Long = System.currentTimeMillis(),
-    private val interactionLogger: (Session, Interaction) -> Unit = { _, _ -> }
-) {
-
-    val id: UUID = UUID.randomUUID()
-
-    enum class InteractionType { REQUEST, RESPONSE }
-    class Interaction(
-        val type: InteractionType,
-        val timestamp: Long,
-        val payload: ByteArray,
-        val offset: Int,
-        val size: Int
-    )
-
-    fun append(type: InteractionType, buffer: ByteArray, offset: Int, size: Int) =
-        Interaction(type, System.currentTimeMillis(), buffer, offset, size)
-            .also { interactionLogger(this, it) }
-}
-
 class Proxy(
     val host: String,
     val proxiedPort: Int,
     val exposedPort: Int,
     private val interactionLogger: (Session, Interaction) -> Unit = { _, _ -> }
-) :
-    ServerRunner(exposedPort) {
+) : ServerRunner(exposedPort) {
 
     companion object : Logging
 
@@ -62,14 +39,11 @@ class Proxy(
             val serverSocket = Socket(host, proxiedPort)
             logger.info("New connection ${clientSocket.show()} for ${serverSocket.show()}")
 
+            val expirer = Expirer(SessionDuration) {
+                sessions -= clientSocket.inetAddress
+            }
             val session = sessions.computeIfAbsent(clientSocket.inetAddress) {
-                val expirer = Expirer(SessionDuration) {
-                    sessions -= clientSocket.inetAddress
-                }
-                Session(clientSocket.inetAddress, System.currentTimeMillis()) { session, interaction ->
-                    expirer.renew()
-                    interactionLogger(session, interaction)
-                }
+                Session(clientSocket.inetAddress, System.currentTimeMillis())
             }
 
             fun copy(inputStream: InputStream, outputStream: OutputStream, type: InteractionType) {
@@ -77,8 +51,9 @@ class Proxy(
                 generateSequence { inputStream.read(buffer) }
                     .takeWhile { byteCount -> byteCount >= 0 }
                     .forEach { byteCount ->
+                        expirer.renew()
                         outputStream.write(buffer, 0, byteCount)
-                        session.append(type, buffer, 0, byteCount)
+                        interactionLogger(session, session.append(type, buffer, 0, byteCount))
                     }
                 // TODO Is flushing really necessary?
                 outputStream.flush()
@@ -93,12 +68,30 @@ class Proxy(
     }
 }
 
+class Session(val ipAddress: InetAddress, val initialTimestamp: Long = System.currentTimeMillis()) {
+
+    val id: UUID = UUID.randomUUID()
+
+    enum class InteractionType { REQUEST, RESPONSE }
+    class Interaction(
+        val type: InteractionType,
+        val timestamp: Long,
+        val payload: ByteArray,
+        val offset: Int,
+        val size: Int
+    )
+
+    fun append(type: InteractionType, buffer: ByteArray, offset: Int, size: Int) =
+        Interaction(type, System.currentTimeMillis(), buffer, offset, size)
+}
+
 class DelimitedInteractionLogger(
     outputStream: OutputStream,
     private val delimiter: String = "\t"
 ) : (Session, Interaction) -> Unit {
 
     private val out = PrintWriter(outputStream.writer(), true)
+
     override fun invoke(p1: Session, p2: Interaction) = out.println(
         listOf(
             p1.id, p1.ipAddress, p1.initialTimestamp,
