@@ -2,6 +2,7 @@ package scontrino.proxy
 
 import org.junit.jupiter.api.Test
 import scontrino.util.Logging
+import java.io.File
 import kotlin.test.assertEquals
 
 class ProxyIT {
@@ -18,9 +19,11 @@ class ProxyIT {
         val server = LineServer(proxiedPort, poisonPill, String::uppercase)
             .also { it.start() }
 
-        val proxy = Proxy(host, proxiedPort, exposedPort) { interaction ->
-            logger.debug("Interaction log: ${interaction.toDelimited()}")
-        }
+        val outputStream = File("build/interactions.tsv")
+            // File.createTempFile("interaction", ".tsv")
+            // .also { it.deleteOnExit() }
+            .outputStream()
+        val proxy = Proxy(host, proxiedPort, exposedPort, DelimitedInteractionLogger(outputStream))
             .also { it.start() }
 
         val client = LineClient(host, exposedPort, poisonPill)
