@@ -1,54 +1,70 @@
 package scontrino.proxy
 
-import scontrino.proxy.InteractionLogger.InteractionType
-import scontrino.proxy.InteractionLogger.InteractionType.REQUEST
-import scontrino.proxy.InteractionLogger.InteractionType.RESPONSE
+import scontrino.proxy.InteractionType.REQUEST
+import scontrino.proxy.InteractionType.RESPONSE
 import scontrino.util.Logging
 import scontrino.util.ServerRunner
 import scontrino.util.spawn
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicInteger
 
-interface InteractionLogger {
+enum class InteractionType { REQUEST, RESPONSE }
 
-    enum class InteractionType { REQUEST, RESPONSE }
-    fun logInteraction(timestamp: Long, interactionType: InteractionType, payload: ByteArray, bytes: Int)
+class Interaction(
+    val timestamp: Long,
+    val interactionId: Int,
+    val interactionType: InteractionType,
+    val payload: ByteArray
+) {
 
-    object NoOp : InteractionLogger {
-        override fun logInteraction(timestamp: Long, interactionType: InteractionType, payload: ByteArray, bytes: Int) {
-        }
-    }
+    fun toDelimited(separator: String = "\t") =
+        listOf(timestamp, interactionId, interactionType, String(payload)).joinToString(separator)
+
+    constructor(
+        timestamp: Long,
+        interactionId: Int,
+        interactionType: InteractionType,
+        payload: ByteArray,
+        size: Int
+    ) : this(
+        timestamp,
+        interactionId,
+        interactionType,
+        ByteArray(size).apply { payload.copyInto(this, 0, 0, size) })
 }
+
+const val BufferSize: Int = 4096
 
 class Proxy(
     private val host: String,
     private val proxiedPort: Int,
     exposedPort: Int,
-    private val interactionLogger: InteractionLogger = InteractionLogger.NoOp,
-    private val bufferSize: Int = 4096
+    private val logInteraction: (Interaction) -> Unit = { _ -> }
 ) : ServerRunner(exposedPort) {
 
     companion object : Logging
 
+    private val interactionSequence = AtomicInteger(0)
+
     override fun handle(clientSocket: Socket) {
         logger.debug("Proxying connection from ${clientSocket.show()}")
         spawn {
+            val timestamp = System.currentTimeMillis()
+            val interactionId = interactionSequence.incrementAndGet()
+
             val serverSocket = Socket(host, proxiedPort)
             logger.info("New connection ${clientSocket.show()} for ${serverSocket.show()}")
 
             fun copy(inputStream: InputStream, outputStream: OutputStream, interactionType: InteractionType) {
-                val buffer = ByteArray(bufferSize)
-                val timestamp = System.currentTimeMillis()
+                val buffer = ByteArray(BufferSize)
                 generateSequence { inputStream.read(buffer) }
                     .takeWhile { byteCount -> byteCount >= 0 }
                     .forEach { byteCount ->
                         outputStream.write(buffer, 0, byteCount)
-                        interactionLogger.logInteraction(
-                            timestamp, interactionType,
-                            buffer, byteCount
-                        )
+                        val interaction = Interaction(timestamp, interactionId, interactionType, buffer, byteCount)
+                        logInteraction(interaction)
                     }
                 outputStream.flush()
             }
