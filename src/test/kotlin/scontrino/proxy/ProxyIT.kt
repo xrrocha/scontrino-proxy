@@ -1,9 +1,13 @@
 package scontrino.proxy
 
 import org.junit.jupiter.api.Test
+import scontrino.proxy.InteractionLogger.InteractionType
+import scontrino.util.Logging
 import kotlin.test.assertEquals
 
 class ProxyIT {
+
+    companion object: Logging
 
     @Test
     fun `proxy relays traffic`() {
@@ -15,7 +19,12 @@ class ProxyIT {
         val server = LineServer(proxiedPort, poisonPill, String::uppercase)
             .also { it.start() }
 
-        val proxy = Proxy(host, proxiedPort, exposedPort)
+        val interactionLogger = object : InteractionLogger {
+            override fun logInteraction(timestamp: Long, interactionType: InteractionType, payload: ByteArray, bytes: Int) {
+                logger.debug("Interaction log: $timestamp\t$interactionType\t${String(payload, 0, bytes)}")
+            }
+        }
+        val proxy = Proxy(host, proxiedPort, exposedPort, interactionLogger)
             .also { it.start() }
 
         val client = LineClient(host, exposedPort, poisonPill)

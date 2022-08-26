@@ -1,39 +1,68 @@
 package scontrino.proxy
 
+import scontrino.proxy.InteractionLogger.InteractionType
+import scontrino.proxy.InteractionLogger.InteractionType.REQUEST
+import scontrino.proxy.InteractionLogger.InteractionType.RESPONSE
 import scontrino.util.Logging
 import scontrino.util.ServerRunner
+import scontrino.util.spawn
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.Socket
+import java.util.concurrent.atomic.AtomicLong
 
-class Proxy(host: String, proxiedPort: Int, exposedPort: Int) : ServerRunner(exposedPort) {
-    val createConnection = { socket: Socket -> Connection(socket, host, proxiedPort) }
-    override fun handle(socket: Socket) {
-        logger.debug("Proxying connection from ${socket.show()}")
-        Thread(createConnection(socket)).start()
+interface InteractionLogger {
+
+    enum class InteractionType { REQUEST, RESPONSE }
+    fun logInteraction(timestamp: Long, interactionType: InteractionType, payload: ByteArray, bytes: Int)
+
+    object NoOp : InteractionLogger {
+        override fun logInteraction(timestamp: Long, interactionType: InteractionType, payload: ByteArray, bytes: Int) {
+        }
     }
 }
 
-class Connection(private val clientSocket: Socket, host: String, port: Int) : Runnable {
-    companion object : Logging
-
-    private val serverSocket: Socket by lazy { Socket(host, port) }
-    override fun run() {
-        logger.info("New connection ${clientSocket.show()} for ${serverSocket.show()}")
-        Thread(Exchange(clientSocket, serverSocket)).start()
-        Thread(Exchange(serverSocket, clientSocket)).start()
-    }
-}
-
-class Exchange(
-    private val inputSocket: Socket,
-    private val outputSocket: Socket,
+class Proxy(
+    private val host: String,
+    private val proxiedPort: Int,
+    exposedPort: Int,
+    private val interactionLogger: InteractionLogger = InteractionLogger.NoOp,
     private val bufferSize: Int = 4096
-) :
-    Runnable {
+) : ServerRunner(exposedPort) {
+
     companion object : Logging
 
-    override fun run() {
-        logger.info("Proxy ${inputSocket.show()} --> ${outputSocket.show()}")
-        inputSocket.use { inputSocket.inputStream.copyTo(outputSocket.outputStream, bufferSize) }
+    override fun handle(clientSocket: Socket) {
+        logger.debug("Proxying connection from ${clientSocket.show()}")
+        spawn {
+            val serverSocket = Socket(host, proxiedPort)
+            logger.info("New connection ${clientSocket.show()} for ${serverSocket.show()}")
+
+            fun copy(inputStream: InputStream, outputStream: OutputStream, interactionType: InteractionType) {
+                val buffer = ByteArray(bufferSize)
+                val timestamp = System.currentTimeMillis()
+                generateSequence { inputStream.read(buffer) }
+                    .takeWhile { byteCount -> byteCount >= 0 }
+                    .forEach { byteCount ->
+                        outputStream.write(buffer, 0, byteCount)
+                        interactionLogger.logInteraction(
+                            timestamp, interactionType,
+                            buffer, byteCount
+                        )
+                    }
+                outputStream.flush()
+            }
+
+            fun transcribe(inputSocket: Socket, outputSocket: Socket, interactionType: InteractionType) =
+                spawn {
+                    inputSocket.use {
+                        copy(inputSocket.inputStream, outputSocket.outputStream, interactionType)
+                    }
+                }
+
+            transcribe(clientSocket, serverSocket, REQUEST)
+            transcribe(serverSocket, clientSocket, RESPONSE)
+        }
     }
 }
 
