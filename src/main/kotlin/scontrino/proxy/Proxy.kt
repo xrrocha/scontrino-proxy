@@ -47,8 +47,7 @@ class Proxy(
     val proxiedPort: Int,
     val exposedPort: Int,
     private val interactionLogger: (Session, Interaction) -> Unit = { _, _ -> }
-) :
-    ServerRunner(exposedPort) {
+) : ServerRunner(exposedPort) {
 
     companion object : Logging
 
@@ -99,6 +98,7 @@ class DelimitedInteractionLogger(
 ) : (Session, Interaction) -> Unit {
 
     private val out = PrintWriter(outputStream.writer(), true)
+
     override fun invoke(p1: Session, p2: Interaction) = out.println(
         listOf(
             p1.id, p1.ipAddress, p1.initialTimestamp,
