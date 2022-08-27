@@ -19,7 +19,7 @@ class ProxyIT {
         val server = LineServer(proxiedPort, poisonPill, String::uppercase)
             .also { it.start() }
 
-        val outputStream = File("src/test/resources/results/interactions.tsv")
+        val outputStream = File("build/dumpster/interactions.tsv")
             .also { it.parentFile.mkdirs() }
             .outputStream()
         val proxy = Proxy(host, proxiedPort, exposedPort, DelimitedInteractionLogger(outputStream))

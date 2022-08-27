@@ -1,10 +1,7 @@
 package scontrino.proxy
 
-import scontrino.proxy.Session.Interaction
-import scontrino.proxy.Session.InteractionType
-import scontrino.proxy.Session.InteractionType.REQUEST
-import scontrino.proxy.Session.InteractionType.RESPONSE
-import scontrino.util.Expirer
+import scontrino.proxy.InteractionType.REQUEST
+import scontrino.proxy.InteractionType.RESPONSE
 import scontrino.util.Logging
 import scontrino.util.ServerRunner
 import scontrino.util.encode64
@@ -17,43 +14,56 @@ import java.net.InetAddress
 import java.net.Socket
 import java.util.UUID
 
-const val BufferSize: Int = 32 * 1024
-const val SessionDuration = 30 * 60 * 1000L
+enum class InteractionType { REQUEST, RESPONSE }
+class Interaction(
+    val sessionId: UUID,
+    val ipAddress: InetAddress,
+    val type: InteractionType,
+    val timestamp: Long,
+    val payload: ByteArray
+)
+
+const val DefaultBufferSize: Int = 32 * 1024
 
 class Proxy(
     val host: String,
     val proxiedPort: Int,
     val exposedPort: Int,
+    val bufferSize: Int,
     private val interactionLogger: (Interaction) -> Unit = { _ -> }
 ) : ServerRunner(exposedPort) {
 
-    companion object : Logging
+    constructor(
+        host: String,
+        proxiedPort: Int,
+        exposedPort: Int,
+        interactionLogger: (Interaction) -> Unit = { _ -> }
+    ) : this(host, proxiedPort, exposedPort, DefaultBufferSize, interactionLogger)
 
-    private val sessions = mutableMapOf<InetAddress, Session>()
+    companion object : Logging
 
     override fun handle(clientSocket: Socket) {
         logger.debug("Proxying connection from ${clientSocket.show()}")
 
         spawn {
-
             val serverSocket = Socket(host, proxiedPort)
             logger.info("New connection ${clientSocket.show()} for ${serverSocket.show()}")
 
-            val expirer = Expirer(SessionDuration) {
-                sessions -= clientSocket.inetAddress
-            }
-            val session = sessions.computeIfAbsent(clientSocket.inetAddress) {
-                Session(clientSocket.inetAddress, System.currentTimeMillis())
-            }
-
-            fun copy(inputStream: InputStream, outputStream: OutputStream, type: InteractionType) {
-                val buffer = ByteArray(BufferSize)
+            val id: UUID = UUID.randomUUID()
+            fun copy(inputStream: InputStream, outputStream: OutputStream, interactionType: InteractionType) {
+                val buffer = ByteArray(bufferSize)
                 generateSequence { inputStream.read(buffer) }
                     .takeWhile { byteCount -> byteCount >= 0 }
                     .forEach { byteCount ->
-                        expirer.renew()
                         outputStream.write(buffer, 0, byteCount)
-                        interactionLogger(session.append(type, buffer, 0, byteCount))
+                        interactionLogger(Interaction(
+                            id,
+                            clientSocket.inetAddress,
+                            interactionType,
+                            System.currentTimeMillis(),
+                            ByteArray(byteCount)
+                                .also { buffer.copyInto(it, 0, 0, byteCount) }
+                        ))
                     }
             }
 
@@ -64,30 +74,6 @@ class Proxy(
             transcribe(serverSocket, clientSocket, RESPONSE)
         }
     }
-}
-
-class Session(val ipAddress: InetAddress, val initialTimestamp: Long = System.currentTimeMillis()) {
-
-    val id: UUID = UUID.randomUUID()
-
-    enum class InteractionType { REQUEST, RESPONSE }
-    class Interaction(
-        val sessionId: UUID,
-        val ipAddress: InetAddress,
-        val type: InteractionType,
-        val timestamp: Long,
-        val payload: ByteArray
-    )
-
-    fun append(type: InteractionType, buffer: ByteArray, offset: Int, size: Int) =
-        Interaction(
-            id,
-            ipAddress,
-            type,
-            System.currentTimeMillis(),
-            ByteArray(size)
-                .also { buffer.copyInto(it, 0, offset, offset + size) }
-        )
 }
 
 class DelimitedInteractionLogger(
@@ -104,6 +90,5 @@ class DelimitedInteractionLogger(
         )
             .joinToString(delimiter)
     )
-
 }
 
