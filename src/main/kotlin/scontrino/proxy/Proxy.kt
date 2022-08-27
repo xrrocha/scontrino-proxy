@@ -24,7 +24,7 @@ class Proxy(
     val host: String,
     val proxiedPort: Int,
     val exposedPort: Int,
-    private val interactionLogger: (Session, Interaction) -> Unit = { _, _ -> }
+    private val interactionLogger: (Interaction) -> Unit = { _ -> }
 ) : ServerRunner(exposedPort) {
 
     companion object : Logging
@@ -53,10 +53,8 @@ class Proxy(
                     .forEach { byteCount ->
                         expirer.renew()
                         outputStream.write(buffer, 0, byteCount)
-                        interactionLogger(session, session.append(type, buffer, 0, byteCount))
+                        interactionLogger(session.append(type, buffer, 0, byteCount))
                     }
-                // TODO Is flushing really necessary?
-                outputStream.flush()
             }
 
             fun transcribe(inputSocket: Socket, outputSocket: Socket, type: InteractionType) =
@@ -74,32 +72,38 @@ class Session(val ipAddress: InetAddress, val initialTimestamp: Long = System.cu
 
     enum class InteractionType { REQUEST, RESPONSE }
     class Interaction(
+        val sessionId: UUID,
+        val ipAddress: InetAddress,
         val type: InteractionType,
         val timestamp: Long,
-        val payload: ByteArray,
-        val offset: Int,
-        val size: Int
+        val payload: ByteArray
     )
 
     fun append(type: InteractionType, buffer: ByteArray, offset: Int, size: Int) =
-        Interaction(type, System.currentTimeMillis(), buffer, offset, size)
+        Interaction(
+            id,
+            ipAddress,
+            type,
+            System.currentTimeMillis(),
+            ByteArray(size)
+                .also { buffer.copyInto(it, 0, offset, offset + size) }
+        )
 }
 
 class DelimitedInteractionLogger(
     outputStream: OutputStream,
     private val delimiter: String = "\t"
-) : (Session, Interaction) -> Unit {
+) : (Interaction) -> Unit {
 
     private val out = PrintWriter(outputStream.writer(), true)
 
-    override fun invoke(p1: Session, p2: Interaction) = out.println(
+    override fun invoke(p1: Interaction) = out.println(
         listOf(
-            p1.id, p1.ipAddress, p1.initialTimestamp,
-            p2.type, p2.timestamp, encode64(
-                ByteArray(p2.size).also { p2.payload.copyInto(it, 0, p2.offset, p2.offset + p2.size) }
-            )
+            p1.sessionId, p1.ipAddress,
+            p1.type, p1.timestamp, encode64(p1.payload)
         )
             .joinToString(delimiter)
     )
+
 }
 
