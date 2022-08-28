@@ -15,6 +15,7 @@ repositories {
 dependencies {
     implementation("org.slf4j:slf4j-simple:2.0.0")
     testImplementation(kotlin("test"))
+    testImplementation("com.h2database:h2:2.1.214")
 }
 
 tasks.test {
