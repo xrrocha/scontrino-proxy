@@ -14,14 +14,14 @@ A sample invocation proxying a Postgres server would look like:
 ```
 $ scontrino-proxy \
   --host=localhost --remote-port=5432 --local-port=2345 \
-  --dump-file=postgres-interactions.tsv --buffer-size=32768
+  --dump-file=./postgres-interactions.tsv --buffer-size=32768
 ```
 
 where:
 
 - `--host` names the proxied remote host. Defaults to `localhost` 
 - `--remote-port` specifies the port to be proxied on the remote host. Defaults to `8080` 
-- `--local-port` the local port on which clients will be services. Defaults to `8081`
+- `--local-port` the local port on which clients will be serviced. Defaults to `8081`
 - `--dump-file` names the tab-separated file where all interactions will be logged (see below). Defaults to `.
   /proxied-interactions.tsv`
 - `--buffer-size` specifies the chunk size to read (and dump) observed interactions. Defaults to `4096`
@@ -97,10 +97,10 @@ RESPONSE
 ## What's Next?
 
 The next step in the roadmap is to allow the proxy to recognize certain requests and re-route them to alternate
-services (possibly after preprocessing the request) while still forwarding unrecognized traffic to the proxied server.
+services (possibly after request preprocessing) while still forwarding unrecognized traffic to the proxied server.
 
 This could enable incremental migration of server responsibilities in a way reminiscent of 
-[Hans Moravec](https://en.wikipedia.org/wiki/Hans_Moravec)'s 1989 vision as outlined in his
+[Hans Moravec](https://en.wikipedia.org/wiki/Hans_Moravec)'s 1989 vision outlined in his
 ["After Life"](https://frc.ri.cmu.edu/~hpm/project.archive/robot.papers/1989/Afterlife.html):
 
 > You've just been wheeled into the operating room. A robot brain surgeon
