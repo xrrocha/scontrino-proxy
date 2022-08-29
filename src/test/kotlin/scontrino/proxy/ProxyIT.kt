@@ -94,6 +94,9 @@ class ProxyIT {
             .forEach { sql ->
                 connection.createStatement().execute(sql)
             }
+
+        proxy.stop();
+        threadRunner.stop()
     }
 
     private fun fileOSFor(baseName: String) =
