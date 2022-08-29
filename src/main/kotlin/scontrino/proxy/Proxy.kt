@@ -7,12 +7,12 @@ import scontrino.util.ServerRunner
 import scontrino.util.encode64
 import scontrino.util.show
 import scontrino.util.spawn
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PrintWriter
 import java.net.InetAddress
 import java.net.Socket
-import java.util.Stack
 import java.util.UUID
 
 enum class InteractionType { REQUEST, RESPONSE }
@@ -24,7 +24,7 @@ class Interaction(
     val payload: ByteArray
 )
 
-const val DefaultBufferSize: Int = 32 * 1024
+const val DefaultBufferSize: Int = 4 * 1024
 
 class Proxy(
     val host: String,
@@ -81,7 +81,11 @@ class DelimitedInteractionLogger(
     outputStream: OutputStream,
     private val delimiter: String = "\t"
 ) : (Interaction) -> Unit {
+
     private val out = PrintWriter(outputStream.writer(), true)
+
+    // TODO(ricardo) File.parentFile returns null on leaf filenames!
+    constructor(file: File) : this(file.also { it.parentFile.mkdirs() }.outputStream())
 
     override fun invoke(p1: Interaction) {
         out.println(
