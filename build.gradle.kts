@@ -3,13 +3,19 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm") version "1.7.10"
     application
+    id("com.github.johnrengelman.shadow") version "7.1.2"
 }
 
-group = "org.example"
+group = "scontrino"
 version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+}
+
+application {
+    mainModule.set("scontrino.proxy")
+    mainClass.set("scontrino.proxy.MainKt")
 }
 
 dependencies {
@@ -24,8 +30,4 @@ tasks.test {
 
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "16"
-}
-
-application {
-    mainClass.set("MainKt")
 }
