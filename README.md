@@ -3,11 +3,22 @@
 A simple TCP/IP proxy and sniffer written in Kotlin.
 
 `scontrino-proxy` transcribes all network interactions between a proxied server and its clients for subsequent off-line 
-analysis. This useful for analyzing and reverse engineering undocumented protocols.
+analysis. This is useful for analyzing and reverse engineering undocumented protocols.
 
 ## Command-line Invocation
 
-Under the `dist` directory there are *nix shell and Windows batch scripts to run the proxy.
+Under the `dist` directory there are
+
+
+
+
+
+
+
+
+
+
+ *nix shell and Windows batch scripts to run the proxy.
 
 A sample invocation proxying a Postgres server would look like:
 
