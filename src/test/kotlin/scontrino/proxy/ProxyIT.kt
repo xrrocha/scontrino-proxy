@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 class ProxyIT {
 
     companion object : Logging {
-        val Dumpster = File("build/tmp/test/proxy/").also { it.mkdirs() }
+        val Dumpster = File("./test-data").also { it.mkdirs() }
     }
 
     @Test

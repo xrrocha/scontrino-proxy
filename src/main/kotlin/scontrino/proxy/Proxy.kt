@@ -12,6 +12,7 @@ import java.io.OutputStream
 import java.io.PrintWriter
 import java.net.InetAddress
 import java.net.Socket
+import java.util.Stack
 import java.util.UUID
 
 enum class InteractionType { REQUEST, RESPONSE }
@@ -80,15 +81,16 @@ class DelimitedInteractionLogger(
     outputStream: OutputStream,
     private val delimiter: String = "\t"
 ) : (Interaction) -> Unit {
-
     private val out = PrintWriter(outputStream.writer(), true)
 
-    override fun invoke(p1: Interaction) = out.println(
-        listOf(
-            p1.sessionId, p1.ipAddress,
-            p1.type, p1.timestamp, encode64(p1.payload)
+    override fun invoke(p1: Interaction) {
+        out.println(
+            listOf(
+                p1.sessionId, p1.ipAddress,
+                p1.timestamp, p1.type, encode64(p1.payload)
+            )
+                .joinToString(delimiter)
         )
-            .joinToString(delimiter)
-    )
+    }
 }
 
